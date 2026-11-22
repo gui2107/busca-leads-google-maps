@@ -43,32 +43,41 @@ def buscar_leads_maps(termo_busca: str, max_resultados: int = 10) -> list[dict]:
 
             try:
                 card.click()
-                page.wait_for_selector("h1", timeout=5000)
-                time.sleep(1.2)  # Pausa curta para os detalhes laterais renderizarem
+                # Espera o painel específico da empresa abrir (o aria-label dele é o próprio nome da empresa!)
+                time.sleep(1.5)
 
-                # 1. Nome da empresa
-                nome = page.locator("h1").first.inner_text().strip()
+                # O painel principal de detalhes da empresa fica sempre no ÚLTIMO div[role="main"] aberto
+                painel_empresa = page.locator('div[role="main"]').last
+
+                # 1. Nome da empresa (ignora a etiqueta "Patrocinado" dos anúncios)
+                nome = ""
+                for h1 in painel_empresa.locator("h1").all():
+                    texto_h1 = h1.inner_text().strip()
+                    if texto_h1 and "Patrocinado" not in texto_h1 and "Sponsored" not in texto_h1:
+                        nome = texto_h1
+                        break
+
+                if not nome:
+                    continue
 
                 # 2. Telefone
                 telefone = "Não informado"
-                btn_telefone = page.locator('button[data-item-id^="phone:"]')
+                btn_telefone = painel_empresa.locator('button[data-item-id^="phone:"]')
                 if btn_telefone.count() > 0:
                     aria_tel = btn_telefone.first.get_attribute("aria-label") or ""
                     telefone = aria_tel.replace("Telefone:", "").strip()
 
                 # 3. Website
                 site = "Não possui site"
-                link_site = page.locator('a[data-item-id="authority"]')
+                link_site = painel_empresa.locator('a[data-item-id="authority"]')
                 if link_site.count() > 0:
                     site = link_site.first.get_attribute("href") or "Não possui site"
 
-                # 4. Nota / Avaliação
+                # 4. Nota / Avaliação (dentro do painel da empresa)
                 nota = "Sem nota"
-                span_nota = page.locator('div[role="main"] span[aria-hidden="true"]').first
+                span_nota = painel_empresa.locator('div.F7nice span[aria-hidden="true"]').first
                 if span_nota.count() > 0:
-                    texto_nota = span_nota.inner_text().strip()
-                    if texto_nota and texto_nota[0].isdigit():
-                        nota = texto_nota
+                    nota = span_nota.inner_text().strip()
 
                 lead = {
                     "nome": nome,
